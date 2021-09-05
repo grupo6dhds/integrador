@@ -38,7 +38,7 @@ def main():
     #
     #   Con esto se configura un titulo e icono para la página web
     #   st.set_page_config(page_title="Grupo 6 - TP 4 App", page_icon="icon_g6_tp4.png", initial_sidebar_state="auto")
-    st.title('TP 4 - App Grupo 6')
+    st.title('An[alisis de sentimiento para drogas medicinales')
     st.header("Digital House - Data Science - TP 4 - App Grupo 6")
 
     opciones = ["Text scrapping", "File uploading", "Sentiment Analysis", "About"]
