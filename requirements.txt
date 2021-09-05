@@ -1,0 +1,16 @@
+streamlit
+pandas 
+numpy
+plotly
+joblib
+lightgbm
+wordcloud
+eli5
+praw
+datetime
+twint
+nest_asyncio
+nltk
+sklearn
+matplotlib
+textblob
