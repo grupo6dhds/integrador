@@ -12,8 +12,9 @@ import praw
 import re
 from datetime import datetime
 import twint
-import nest_asyncio
+# import nest_asyncio
 # nest_asyncio.apply()
+import asyncio
 
 import nltk
 nltk.download('stopwords')
@@ -27,11 +28,13 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 
-# import shelve
+import shelve
 import matplotlib.pyplot as plt
 import collections
 import bz2
 import _pickle as cPickle
+
+from textblob import TextBlob
 
 def main():
     # Función principal que levanta e inicializa la app
@@ -39,9 +42,11 @@ def main():
     #   Con esto se configura un titulo e icono para la página web
     #   st.set_page_config(page_title="Grupo 6 - TP 4 App", page_icon="icon_g6_tp4.png", initial_sidebar_state="auto")
     st.title('Análisis de sentimiento')
-    st.header("para drogas medicinales")
+    st.title('para drogas medicinales')
+    #   st.header("Digital House - Data Science - TP 4 - App Grupo 6")
 
     opciones = ["Text scrapping", "File uploading", "Sentiment Analysis", "About"]
+    # opciones = ["File uploading", "Sentiment Analysis", "About"]
     opcion_sel = st.sidebar.selectbox("Option Menu", opciones)
 
     if opcion_sel == "Text scrapping":
@@ -63,7 +68,7 @@ def text_scrapping():
     st.write("")
     with st.form("frm_text_scrap"):
         droga = st.text_input("Nombre de la droga: ")
-        busqueda = ["Twitter", "Reddit"]
+        busqueda = ["Reddit", "Twitter"]
         busqueda_sel = st.selectbox("Opciones de búsqueda", busqueda)
         subreddit = st.text_input("Nombre del subreddit: ")
         submit_sel = st.form_submit_button(label=" Iniciar búsqueda ")
@@ -71,9 +76,11 @@ def text_scrapping():
             if droga:
                 if busqueda_sel == "Twitter":
                     st.success("Ha iniciado la búsqueda de la droga '{}' en {}". format(droga, busqueda_sel))
+                    procesar_tweets(droga)
                 else:
                     if subreddit:
                         st.success("Ha iniciado la búsqueda de la droga '{}' en {}". format(droga, busqueda_sel))
+                        procesar_reddit(droga,subreddit)
                     else:
                         st.warning("Debe seleccionar un subreddit para realizar la búsqueda")
             else:
@@ -107,6 +114,7 @@ def sentiment_analysis():
         if submit_txt:
             if text_val:
                 st.success("Ha iniciado el análisis del texto ingresado")
+                procesar_frase(text_val)
             else:
                 st.warning("Debe ingresar un texto antes de iniciar el análisis")
     st.write("")
@@ -121,38 +129,72 @@ def about():
     st.write("Franco Visintini")
     st.write("Federico Vessuri")
 
+def procesar_tweets(droga):
+    st.write("buscar tweets...")
+    df = buscar_tweets(droga)
+    if df is not None:
+        st.write("dataframe de tweets:", df.head(5))
+        st.write("shape: ", df.shape)
+        procesar_resultados(df, droga)
+    else:
+        st.warning("No hay datos en el archivo para procesar")
+
+def procesar_reddit(droga, subreddit):
+    st.write("buscar en reddit...")
+    df = buscar_reddit(subreddit, droga)
+    if df is not None:
+        st.write("dataframe de reddit:", df.head(5))
+        st.write("shape: ", df.shape)
+        procesar_resultados(df, droga)
+    else:
+        st.warning("No hay datos en el archivo para procesar")
+
 def procesar_archivo(arch):
     # Función para cuando se ejecuta la opción de File uploading
     if arch is not None:
         df = pd.read_csv(arch)
         if df is not None:
+            droga = df["droga"][0]
             st.write("dataframe del archivo:", df.head(5))
             st.write("shape: ", df.shape)
-            clean_review = procesar_dataframe(df)
-            clean_review_pred = predecir_reviews(clean_review)
-            #st.write("Predicción de las reviews: ", clean_review_pred)
-            count = collections.Counter(clean_review_pred)
-            data_chart = pd.DataFrame({
-            'Sentiment': ['Insatisfactorio', 'Satisfactorio'],
-            'Results': [count[0], count[1]],
-            })
-            st.write(data_chart)
-            # Pie chart, where the slices will be ordered and plotted counter-clockwise:
-            labels = 'Insatisfatorios', 'Satisfactorios'
-            sizes = [count[0], count[1]]
-            explode = (0, 0.1)  # sólos e hace "explode" de los "Satisfactorios"
-
-            fig1, ax1 = plt.subplots()
-            ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
-                    shadow=True, startangle=90)
-            ax1.axis('equal')
-
-
-            st.pyplot(fig1)
+            procesar_resultados(df, droga)
         else:
             st.warning("No hay datos en el archivo para procesar")
     else:
         return None
+
+def procesar_frase(texto):
+    # Función para cuando se ejecuta la opción de Sentiment Analysis
+    rev = [texto]
+    # modelos = load_model("modelo_svd_cvectorizer")
+    # lgbm = modelos["lgbm"]
+    # svd = modelos["svd"]
+    # cvect = modelos["cvectorizer"]
+    lgbm = decompress_pickle("modelo_lgbm_08")
+    svd = decompress_pickle("modelo_svd_08")
+    cvect = decompress_pickle("modelo_cvect_08")
+    pred = lgbm.predict(svd.transform(cvect.transform(rev)))
+    # st.write("pred = ", pred)
+    tb_res = TextBlob(texto).sentiment
+    # st.write("tb_res: ", tb_res)
+    pol = tb_res[0]
+    subj = tb_res[1]
+    if pred[0] == 1:
+        st.write("Resultado: Satisfatorio")
+    else:
+        st.write("Resultado: Insatisfatorio")
+    if pol > 0:
+        st.write("Sentimiento: Positivo")
+    elif pol == 0:
+        st.write("Sentimiento: Neutro")
+    else:
+        st.write("Sentimiento: Negativo")
+    if subj > 0:
+        st.write("Subjetividad: Alta")
+    elif subj == 0:
+        st.write("Subjetividad: Neutra")
+    else:
+        st.write("Subjetividad: Baja")
 
 def buscar_tweets(droga):
     # Función para hacer scrapping de Twitter con la librería twint
@@ -163,6 +205,8 @@ def buscar_tweets(droga):
     c.Limit = 200
     c.Pandas = True
     c.Lang="en"
+    st.write("Busqueda: ", Busqueda)
+    asyncio.set_event_loop(asyncio.new_event_loop())
     twint.run.Search(c)
     Tweets_df = twint.storage.panda.Tweets_df
     Tweets_df['droga'] = droga
@@ -180,7 +224,9 @@ def buscar_reddit(subredd , droga):
     Busqueda =   """\"""" + droga + " is" + """\""""
     reddit = get_reddit_credentials()
     subR = reddit.subreddit(Subreddit)
+    st.write("buscando en reddit la droga {} en el subreddit {}...".format(droga,subredd))
     resp = subR.search(Busqueda,limit=100)
+    st.write("busqueda en reddit finalizada...")
     for submission in resp:
         df.at[i, 'droga'] = droga
         df.at[i, 'review'] =str(str(submission.title.encode('ascii', 'ignore').decode("utf-8")) +" "+ str(submission.selftext[:120].encode('ascii', 'ignore').decode("utf-8")))        
@@ -190,6 +236,29 @@ def buscar_reddit(subredd , droga):
 
 def get_reddit_credentials():
     return praw.Reddit(client_id='5U6IG9mVmOBz08m7gb_z8Q',client_secret='Y8yZhKAmDk6ryyEiXutrM0SVgnAMEg',username='jboirazian',password='+xj<_6$9hsZ7E)L',user_agent='jboirazian_grupo4')
+
+def procesar_resultados(df, droga):
+    clean_review = procesar_dataframe(df)
+    clean_review_pred = predecir_reviews(clean_review)
+    #st.write("Predicción de las reviews: ", clean_review_pred)
+    count = collections.Counter(clean_review_pred)
+    data_chart = pd.DataFrame({
+    'Sentiment': ['Insatisfactorio', 'Satisfactorio'],
+    'Results': [count[0], count[1]],
+    })
+    st.write(data_chart)
+    # Pie chart, where the slices will be ordered and plotted counter-clockwise:
+    labels = 'Insatisfatorios', 'Satisfactorios'
+    sizes = [count[0], count[1]]
+    explode = (0, 0.1)  # sólos e hace "explode" de los "Satisfactorios"
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
+            shadow=True, startangle=90)
+    ax1.axis('equal')
+    #ax1.title(droga)
+
+    st.pyplot(fig1)
 
 def limpiar_texto(texto):
     # Función de limpieza de texto
@@ -242,17 +311,17 @@ def predecir_reviews(reviews):
     # lgbm = modelos["lgbm"]
     # svd = modelos["svd"]
     # cvect = modelos["cvectorizer"]
-    lgbm = decompress_pickle("modelo_lgbm")
-    svd = decompress_pickle("modelo_svd")
-    cvect = decompress_pickle("modelo_cvect")
+    lgbm = decompress_pickle("modelo_lgbm_08")
+    svd = decompress_pickle("modelo_svd_08")
+    cvect = decompress_pickle("modelo_cvect_08")
     # Se realiza la predicción de las reviews
     pred = lgbm.predict(svd.transform(cvect.transform(reviews)))
     return pred
 
 # def load_model(file):
 #     # Función para recargar un modelo entrenado [se usa la librería shelve]
-#     m = shelve.open(file)
-#     return m
+#      m = shelve.open(file)
+#      return m
 
 # Load any compressed pickle file
 def decompress_pickle(file):
