@@ -170,19 +170,21 @@ def procesar_frase(texto):
     # lgbm = modelos["lgbm"]
     # svd = modelos["svd"]
     # cvect = modelos["cvectorizer"]
-    lgbm = decompress_pickle("modelo_lgbm_08")
-    svd = decompress_pickle("modelo_svd_08")
-    cvect = decompress_pickle("modelo_cvect_08")
-    pred = lgbm.predict(svd.transform(cvect.transform(rev)))
+    # lgbm = decompress_pickle("modelo_lgbm_08")
+    # svd = decompress_pickle("modelo_svd_08")
+    # cvect = decompress_pickle("modelo_cvect_08")
+    lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
+    # pred = lgbm.predict(svd.transform(cvect.transform(rev)))
+    pred = predecir_reviews(rev, lgbm, svd, cvect)
     # st.write("pred = ", pred)
     tb_res = TextBlob(texto).sentiment
     # st.write("tb_res: ", tb_res)
     pol = tb_res[0]
     subj = tb_res[1]
     if pred[0] == 1:
-        st.write("Resultado: Satisfatorio")
+        st.success("Resultado: Satisfatorio")
     else:
-        st.write("Resultado: Insatisfatorio")
+        st.error("Resultado: Insatisfatorio")
     if pol > 0:
         st.write("Sentimiento: Positivo")
     elif pol == 0:
@@ -239,7 +241,8 @@ def get_reddit_credentials():
 
 def procesar_resultados(df, droga):
     clean_review = procesar_dataframe(df)
-    clean_review_pred = predecir_reviews(clean_review)
+    lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
+    clean_review_pred = predecir_reviews(clean_review, lgbm, svd, cvect)
     #st.write("Predicción de las reviews: ", clean_review_pred)
     count = collections.Counter(clean_review_pred)
     data_chart = pd.DataFrame({
@@ -304,16 +307,23 @@ def procesar_dataframe(df):
     clean_review = [clean_datos(x, tokenizer, englishStemmer, stopwords_en) for x in df.review]
     return clean_review
 
-def predecir_reviews(reviews):
+@st.cache(allow_output_mutation=True)
+def obtener_modelos(file_lgbm, file_svd, file_cvect):
+    lgbm = decompress_pickle(file_lgbm)
+    svd = decompress_pickle(file_svd)
+    cvect = decompress_pickle(file_cvect)
+    return lgbm, svd, cvect
+
+def predecir_reviews(reviews, lgbm, svd, cvect):
     # Función para obtener la predicción de las reviews
     # Se obtienen los modelos entrenados
     # modelos = load_model("modelo_svd_cvectorizer")
     # lgbm = modelos["lgbm"]
     # svd = modelos["svd"]
     # cvect = modelos["cvectorizer"]
-    lgbm = decompress_pickle("modelo_lgbm_08")
-    svd = decompress_pickle("modelo_svd_08")
-    cvect = decompress_pickle("modelo_cvect_08")
+    # lgbm = decompress_pickle("modelo_lgbm_08")
+    # svd = decompress_pickle("modelo_svd_08")
+    # cvect = decompress_pickle("modelo_cvect_08")
     # Se realiza la predicción de las reviews
     pred = lgbm.predict(svd.transform(cvect.transform(reviews)))
     return pred
