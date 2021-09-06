@@ -170,9 +170,9 @@ def procesar_frase(texto):
     # lgbm = modelos["lgbm"]
     # svd = modelos["svd"]
     # cvect = modelos["cvectorizer"]
-    lgbm = decompress_pickle("modelo_lgbm_08")
-    svd = decompress_pickle("modelo_svd_08")
-    cvect = decompress_pickle("modelo_cvect_08")
+    # lgbm = decompress_pickle("modelo_lgbm_08")
+    # svd = decompress_pickle("modelo_svd_08")
+    # cvect = decompress_pickle("modelo_cvect_08")
     pred = lgbm.predict(svd.transform(cvect.transform(rev)))
     # st.write("pred = ", pred)
     tb_res = TextBlob(texto).sentiment
@@ -311,9 +311,9 @@ def predecir_reviews(reviews):
     # lgbm = modelos["lgbm"]
     # svd = modelos["svd"]
     # cvect = modelos["cvectorizer"]
-    lgbm = decompress_pickle("modelo_lgbm_08")
-    svd = decompress_pickle("modelo_svd_08")
-    cvect = decompress_pickle("modelo_cvect_08")
+    # lgbm = decompress_pickle("modelo_lgbm_08")
+    # svd = decompress_pickle("modelo_svd_08")
+    # cvect = decompress_pickle("modelo_cvect_08")
     # Se realiza la predicción de las reviews
     pred = lgbm.predict(svd.transform(cvect.transform(reviews)))
     return pred
@@ -328,6 +328,11 @@ def decompress_pickle(file):
     data = bz2.BZ2File(file + ".pbz2", "rb")
     data = cPickle.load(data)
     return data
+
+# Se cargan los modelos una sola vez
+lgbm = decompress_pickle("modelo_lgbm_08")
+svd = decompress_pickle("modelo_svd_08")
+cvect = decompress_pickle("modelo_cvect_08")
 
 # Se inicia la app con la función main
 if __name__ == '__main__':
