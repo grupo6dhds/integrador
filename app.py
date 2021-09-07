@@ -38,26 +38,16 @@ from textblob import TextBlob
 
 def main():
     # Función principal que levanta e inicializa la app
-    #
-    #   Con esto se configura un titulo e icono para la página web
-    #   st.set_page_config(page_title="Grupo 6 - TP 4 App", page_icon="icon_g6_tp4.png", initial_sidebar_state="auto")
     st.title('Análisis de sentimiento')
     st.title('para drogas medicinales')
-    #   st.header("Digital House - Data Science - TP 4 - App Grupo 6")
-
     opciones = ["Text scrapping", "File uploading", "Sentiment Analysis", "About"]
-    # opciones = ["File uploading", "Sentiment Analysis", "About"]
     opcion_sel = st.sidebar.selectbox("Option Menu", opciones)
-
     if opcion_sel == "Text scrapping":
         text_scrapping()
-
     if opcion_sel == "File uploading":
         file_uploading()
-
     if opcion_sel == "Sentiment Analysis":
         sentiment_analysis()
-
     if opcion_sel == "About":
         about()
 
@@ -166,23 +156,13 @@ def procesar_archivo(arch):
 def procesar_frase(texto):
     # Función para cuando se ejecuta la opción de Sentiment Analysis
     rev = [texto]
-    # modelos = load_model("modelo_svd_cvectorizer")
-    # lgbm = modelos["lgbm"]
-    # svd = modelos["svd"]
-    # cvect = modelos["cvectorizer"]
-    # lgbm = decompress_pickle("modelo_lgbm_08")
-    # svd = decompress_pickle("modelo_svd_08")
-    # cvect = decompress_pickle("modelo_cvect_08")
     lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
-    # pred = lgbm.predict(svd.transform(cvect.transform(rev)))
     pred = predecir_reviews(rev, lgbm, svd, cvect)
-    # st.write("pred = ", pred)
     tb_res = TextBlob(texto).sentiment
-    # st.write("tb_res: ", tb_res)
     pol = tb_res[0]
     subj = tb_res[1]
     if pred[0] == 1:
-        st.success("Resultado: Satisfatorio")
+        st.success("Resultado: Satisfactorio")
     else:
         st.error("Resultado: Insatisfatorio")
     if pol > 0:
@@ -231,7 +211,7 @@ def buscar_reddit(subredd , droga):
     st.write("busqueda en reddit finalizada...")
     for submission in resp:
         df.at[i, 'droga'] = droga
-        df.at[i, 'review'] =str(str(submission.title.encode('ascii', 'ignore').decode("utf-8")) +" "+ str(submission.selftext[:120].encode('ascii', 'ignore').decode("utf-8")))        
+        df.at[i, 'review'] =str(str(submission.title.encode('ascii', 'ignore').decode("utf-8")) +" "+ str(submission.selftext[:800].encode('ascii', 'ignore').decode("utf-8")))        
         df.at[i, 'date'] = datetime.utcfromtimestamp(int((submission.created_utc))).strftime('%Y-%m')
         i+=1
     return df
@@ -243,30 +223,17 @@ def procesar_resultados(df, droga):
     clean_review = procesar_dataframe(df)
     lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
     clean_review_pred = predecir_reviews(clean_review, lgbm, svd, cvect)
-    #st.write("Predicción de las reviews: ", clean_review_pred)
-    count = collections.Counter(clean_review_pred)
-    data_chart = pd.DataFrame({
-    'Sentiment': ['Insatisfactorio', 'Satisfactorio'],
-    'Results': [count[0], count[1]],
-    })
-    st.write(data_chart)
-    # Pie chart, where the slices will be ordered and plotted counter-clockwise:
-    labels = 'Insatisfatorios', 'Satisfactorios'
-    sizes = [count[0], count[1]]
-    explode = (0, 0.1)  # sólos e hace "explode" de los "Satisfactorios"
-
-    fig1, ax1 = plt.subplots()
-    ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
-            shadow=True, startangle=90)
-    ax1.axis('equal')
-    ax1.set_title("Droga: " +  droga)
-    #ax1.title(droga)
-
-    st.pyplot(fig1)
-
     df["RESULTADO"] = clean_review_pred
+    df.RESULTADO=df.RESULTADO.replace(0, "INSATISFECHO")
+    df.RESULTADO=df.RESULTADO.replace(1, "SATISFECHO")
+    plot_pie_chart(df, droga)
     plot_barras_histograma(df, droga)
 
+def label_review(res):
+    if res == 0:
+        return "Insatisfactorio"
+    else:
+        return "Satisfactorio"
 
 def limpiar_texto(texto):
     # Función de limpieza de texto
@@ -320,23 +287,8 @@ def obtener_modelos(file_lgbm, file_svd, file_cvect):
     return lgbm, svd, cvect
 
 def predecir_reviews(reviews, lgbm, svd, cvect):
-    # Función para obtener la predicción de las reviews
-    # Se obtienen los modelos entrenados
-    # modelos = load_model("modelo_svd_cvectorizer")
-    # lgbm = modelos["lgbm"]
-    # svd = modelos["svd"]
-    # cvect = modelos["cvectorizer"]
-    # lgbm = decompress_pickle("modelo_lgbm_08")
-    # svd = decompress_pickle("modelo_svd_08")
-    # cvect = decompress_pickle("modelo_cvect_08")
-    # Se realiza la predicción de las reviews
     pred = lgbm.predict(svd.transform(cvect.transform(reviews)))
     return pred
-
-# def load_model(file):
-#     # Función para recargar un modelo entrenado [se usa la librería shelve]
-#      m = shelve.open(file)
-#      return m
 
 # Load any compressed pickle file
 def decompress_pickle(file):
@@ -344,11 +296,15 @@ def decompress_pickle(file):
     data = cPickle.load(data)
     return data
 
+def plot_pie_chart(df, droga):
+    cantidad = df.RESULTADO.value_counts().to_frame().reset_index()
+    fig = px.pie(cantidad, values="RESULTADO", names="index", title="Resultados para la droga: "+droga,template="plotly_dark", color_discrete_sequence=["purple", "orange"])
+    st.plotly_chart(fig)
+
 def plot_barras_histograma(df, droga):
     dummys = pd.get_dummies(df.RESULTADO)
     df= df.merge(dummys,left_index=True,right_index=True)
     fig = px.histogram(df, x="date", color="RESULTADO", title="Histograma de Análisis de Sentimiento para la droga " + droga, template="plotly_dark")
-    # fig.show()
     st.plotly_chart(fig)
 
 # Se inicia la app con la función main
