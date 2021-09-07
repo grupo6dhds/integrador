@@ -12,7 +12,7 @@ import praw
 import re
 from datetime import datetime
 import twint
-# import nest_asyncio
+import nest_asyncio
 # nest_asyncio.apply()
 import asyncio
 
@@ -259,9 +259,14 @@ def procesar_resultados(df, droga):
     ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
             shadow=True, startangle=90)
     ax1.axis('equal')
+    ax1.set_title("Droga: " +  droga)
     #ax1.title(droga)
 
     st.pyplot(fig1)
+
+    df["RESULTADO"] = clean_review_pred
+    plot_barras_histograma(df, droga)
+
 
 def limpiar_texto(texto):
     # Función de limpieza de texto
@@ -338,6 +343,13 @@ def decompress_pickle(file):
     data = bz2.BZ2File(file + ".pbz2", "rb")
     data = cPickle.load(data)
     return data
+
+def plot_barras_histograma(df, droga):
+    dummys = pd.get_dummies(df.RESULTADO)
+    df= df.merge(dummys,left_index=True,right_index=True)
+    fig = px.histogram(df, x="date", color="RESULTADO", title="Histograma de Análisis de Sentimiento para la droga " + droga, template="plotly_dark")
+    # fig.show()
+    st.plotly_chart(fig)
 
 # Se inicia la app con la función main
 if __name__ == '__main__':
