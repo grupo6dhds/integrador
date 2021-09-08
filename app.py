@@ -5,7 +5,7 @@ import plotly.express as px
 import joblib
 import lightgbm as lgb
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
-import eli5
+import eli5 as eli
 from eli5.lime import TextExplainer
 
 import praw
@@ -82,6 +82,7 @@ def file_uploading():
     # Función para la opción de File uploading del menú de opciones
     st.subheader("File uploading")
     st.write("")
+    #proc_arch = 0
     with st.form("frm_file_upload"):
         st.write("El archivo debe ser formato csv y debe contener al menos las siguientes columnas: date, review, droga")
         file_upr = st.file_uploader("Seleccione un archivo (csv) para procesar: ", type='csv')
@@ -89,10 +90,13 @@ def file_uploading():
         if submit_fil:
             if file_upr:
                 st.success("Ha iniciado el proceso del archivo seleccionado")
+                #proc_arch = 1
                 procesar_archivo(file_upr)
             else:
                 st.warning("Debe seleccionar un archivo antes de iniciar el proceso")
     st.write("")
+    # if proc_arch == 1:
+    #     procesar_archivo(file_upr)
 
 def sentiment_analysis():
     # Función para la opción de Sentiment Analysis del menú de opciones
@@ -220,14 +224,16 @@ def get_reddit_credentials():
     return praw.Reddit(client_id='5U6IG9mVmOBz08m7gb_z8Q',client_secret='Y8yZhKAmDk6ryyEiXutrM0SVgnAMEg',username='jboirazian',password='+xj<_6$9hsZ7E)L',user_agent='jboirazian_grupo4')
 
 def procesar_resultados(df, droga):
-    clean_review = procesar_dataframe(df)
+    clean_review = procesar_dataframe(df, droga)
     lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
     clean_review_pred = predecir_reviews(clean_review, lgbm, svd, cvect)
     df["RESULTADO"] = clean_review_pred
     df.RESULTADO=df.RESULTADO.replace(0, "INSATISFECHO")
     df.RESULTADO=df.RESULTADO.replace(1, "SATISFECHO")
+    show_wordcloud(clean_review, df, droga)
     plot_pie_chart(df, droga)
     plot_barras_histograma(df, droga)
+    # show_wordcloud(clean_review, df)
 
 def label_review(res):
     if res == 0:
@@ -268,16 +274,20 @@ def clean_datos(review_text, tokenizer, stemmer, stopwords):
     result = " ".join(clean_words)
     return(result)
 
-def procesar_dataframe(df):
+def procesar_dataframe(df, droga):
     # Función para cuando limpiar las reviews de un dataframe
     df.review.apply(limpiar_texto)
     # Definimos tokenizador, stemmer y stop_words que utilizaremos en la función "clean_datos"
     tokenizer = RegexpTokenizer(r"\w+")
     englishStemmer = SnowballStemmer("english")
-    stopwords_en = stopwords.words('english')
+    stopwords_en = get_stopwords("english")
+    stopwords_en.append(droga)
     # Se quitan las stopwords y se stemizan las palabras limpias de las reviews del dataframe
     clean_review = [clean_datos(x, tokenizer, englishStemmer, stopwords_en) for x in df.review]
     return clean_review
+
+def get_stopwords(lang):
+    return stopwords.words(lang)
 
 @st.cache(allow_output_mutation=True)
 def obtener_modelos(file_lgbm, file_svd, file_cvect):
@@ -306,6 +316,43 @@ def plot_barras_histograma(df, droga):
     df= df.merge(dummys,left_index=True,right_index=True)
     fig = px.histogram(df, x="date", color="RESULTADO", title="Histograma de Análisis de Sentimiento para la droga " + droga, template="plotly_dark")
     st.plotly_chart(fig)
+
+def show_wordcloud(clean_review, df, droga):
+    text_review = ' '.join(clean_review)
+    stopwords = get_stopwords('english')
+    sentiment = get_sentiment(df)
+    #st.write(sentiment)
+    colormap = 'hot'
+    stopwords.append(droga)
+    if sentiment == "INSATISFECHO":
+        colormap = 'cool'
+    wordcloud = WordCloud(width = 500, height = 320, 
+                      random_state=1, background_color='black', 
+                      colormap=colormap,min_word_length=4,collocation_threshold=100, collocations=False, 
+                      stopwords = stopwords).generate(text_review)
+    plot_cloud(wordcloud)
+    #plt.show()
+    # Así se muestra el wordcloud en streamlit
+    st.image(wordcloud.to_array())
+
+# Define a function to plot word cloud
+def plot_cloud(wordcloud):
+    # Set figure size
+    plt.figure(figsize=(30, 20))
+    # Display image
+    plt.imshow(wordcloud)
+    # No axis details
+    plt.axis("off")
+
+def get_sentiment(df):
+    res_ins_cnt = df[df.RESULTADO == "INSATISFECHO"].RESULTADO.count()
+    res_sat_cnt = df[df.RESULTADO == "SATISFECHO"].RESULTADO.count()
+    #st.write(res_ins_cnt)
+    #st.write(res_sat_cnt)
+    res = "SATISFECHO"
+    if res_ins_cnt > res_sat_cnt:
+        res = "INSATISFECHO"
+    return res
 
 # Se inicia la app con la función main
 if __name__ == '__main__':
