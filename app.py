@@ -129,7 +129,7 @@ def procesar_tweets(droga):
     if df is not None:
         st.write("dataframe de tweets:", df.head(5))
         st.write("shape: ", df.shape)
-        procesar_resultados(df, droga)
+        procesar_resultados(df, droga, '')
     else:
         st.warning("No hay datos en el archivo para procesar")
 
@@ -139,7 +139,7 @@ def procesar_reddit(droga, subreddit):
     if df is not None:
         st.write("dataframe de reddit:", df.head(5))
         st.write("shape: ", df.shape)
-        procesar_resultados(df, droga)
+        procesar_resultados(df, droga, subreddit)
     else:
         st.warning("No hay datos en el archivo para procesar")
 
@@ -151,7 +151,7 @@ def procesar_archivo(arch):
             droga = df["droga"][0]
             st.write("dataframe del archivo:", df.head(5))
             st.write("shape: ", df.shape)
-            procesar_resultados(df, droga)
+            procesar_resultados(df, droga, '')
         else:
             st.warning("No hay datos en el archivo para procesar")
     else:
@@ -223,8 +223,8 @@ def buscar_reddit(subredd , droga):
 def get_reddit_credentials():
     return praw.Reddit(client_id='5U6IG9mVmOBz08m7gb_z8Q',client_secret='Y8yZhKAmDk6ryyEiXutrM0SVgnAMEg',username='jboirazian',password='+xj<_6$9hsZ7E)L',user_agent='jboirazian_grupo4')
 
-def procesar_resultados(df, droga):
-    clean_review = procesar_dataframe(df, droga)
+def procesar_resultados(df, droga, subreddit):
+    clean_review = procesar_dataframe(df, droga, subreddit)
     lgbm, svd, cvect = obtener_modelos("modelo_lgbm_08", "modelo_svd_08", "modelo_cvect_08")
     clean_review_pred = predecir_reviews(clean_review, lgbm, svd, cvect)
     df["RESULTADO"] = clean_review_pred
@@ -256,8 +256,10 @@ def limpiar_texto(texto):
     # Replazar multiples espacios en blanco con un ùnico espacio
     multiw_remove = whitespace_remove.replace(r'\s+',' ')    
     # Replazar 2 o más puntos por 1 solo punto
-    dots_remove = multiw_remove.replace(r'\.{2,}', ' ')    
-    return dots_remove
+    dots_remove = multiw_remove.replace(r'\.{2,}', ' ')
+    # quitar cuentas de twitter @algo
+    no_twitter_acct = dots_remove.replace(r'@(?i)[a-z0-9_]+', '')
+    return no_twitter_acct
 
 def contar_palabras(s):
     return (len(s.split()))
@@ -274,7 +276,7 @@ def clean_datos(review_text, tokenizer, stemmer, stopwords):
     result = " ".join(clean_words)
     return(result)
 
-def procesar_dataframe(df, droga):
+def procesar_dataframe(df, droga, subreddit):
     # Función para cuando limpiar las reviews de un dataframe
     df.review.apply(limpiar_texto)
     # Definimos tokenizador, stemmer y stop_words que utilizaremos en la función "clean_datos"
@@ -282,6 +284,10 @@ def procesar_dataframe(df, droga):
     englishStemmer = SnowballStemmer("english")
     stopwords_en = get_stopwords("english")
     stopwords_en.append(droga)
+    stopwords_en.append('https')
+    stopwords_en.append('http')
+    if subreddit != "":
+        stopwords_en.append(subreddit)
     # Se quitan las stopwords y se stemizan las palabras limpias de las reviews del dataframe
     clean_review = [clean_datos(x, tokenizer, englishStemmer, stopwords_en) for x in df.review]
     return clean_review
