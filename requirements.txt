@@ -8,8 +8,7 @@ wordcloud
 eli5
 praw
 datetime
-twint
-nest_asyncio
+python-twitter
 nltk
 sklearn
 matplotlib

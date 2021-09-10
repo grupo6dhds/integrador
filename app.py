@@ -11,10 +11,11 @@ from eli5.lime import TextExplainer
 import praw
 import re
 from datetime import datetime
-import twint
-import nest_asyncio
+#import twint
+#import nest_asyncio
 # nest_asyncio.apply()
-import asyncio
+#import asyncio
+import twitter
 
 import nltk
 nltk.download('stopwords')
@@ -185,20 +186,18 @@ def procesar_frase(texto):
 def buscar_tweets(droga):
     # Función para hacer scrapping de Twitter con la librería twint
     #### BUSCO TWEETS QUE CONTENGAN LA FRASE "Droga is" y despues lo guardo en el DF Tweets_df
-    c = twint.Config()
-    Busqueda =   """\"""" + droga + " is" + """\""""
-    c.Search = Busqueda
-    c.Limit = 200
-    c.Pandas = True
-    c.Lang="en"
-    st.write("Busqueda: ", Busqueda)
-    asyncio.set_event_loop(asyncio.new_event_loop())
-    twint.run.Search(c)
-    Tweets_df = twint.storage.panda.Tweets_df
+    api = twitter.Api(tweet_mode='extended',consumer_key='iGtCeILQXibA52BgNzfA5vfQc',consumer_secret='qMAp8ahgQXwKb5s5yUbpx7uA2IjEHeYAv5fABqcxKZhzX6UlwO',access_token_key='1436099069223505922-euSOEzUXo4R4ug7uUStGh9f9574Wa6',access_token_secret='adUa1vIy0vwnkVR5alwczoYjYGtF2V6EUpVn0E3O5C4Cm')
+    part1 = 'q="'
+    part2 = '%20is"%20exclude%3Aretweets&src=typed_query&f=live&count=80'
+    que = part1 + droga +part2
+    results = api.GetSearch(raw_query=que,return_json=True)
+    Tweets_df = pd.DataFrame(results['statuses'])
     Tweets_df['droga'] = droga
-    Tweets_df=Tweets_df[['date','tweet','droga']]
-    Tweets_df.rename(columns={'tweet': 'review'}, inplace=True)
-    c.Hide_output = True
+    Tweets_df=Tweets_df[['created_at','full_text','droga']]
+    Tweets_df.rename(columns={'full_text': 'review'}, inplace=True)
+    Tweets_df.rename(columns={'created_at': 'date'}, inplace=True)
+    Tweets_df["date"] = pd.to_datetime(Tweets_df['date'])
+    Tweets_df["date"]=Tweets_df["date"].dt.strftime("%d/%m/%y")
     return Tweets_df
 
 def buscar_reddit(subredd , droga):
